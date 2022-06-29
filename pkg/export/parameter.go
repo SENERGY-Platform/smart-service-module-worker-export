@@ -44,11 +44,11 @@ func (this *Export) getRequest(task model.CamundaExternalTask) (result ServingRe
 	variableName := this.config.WorkerParamPrefix + "request"
 	variable, ok := task.Variables[variableName]
 	if !ok {
-		return result, errors.New("missing export values in " + variableName)
+		return result, errors.New("missing value in " + variableName)
 	}
 	criteriaStr, ok := variable.Value.(string)
 	if !ok {
-		return result, errors.New("missing export values in " + variableName)
+		return result, errors.New("missing value in " + variableName)
 	}
 	err = json.Unmarshal([]byte(criteriaStr), &result)
 	if err != nil {
