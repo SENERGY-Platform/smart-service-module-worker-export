@@ -3,7 +3,7 @@ module github.com/SENERGY-Platform/smart-service-module-worker-export
 go 1.18
 
 require (
-	github.com/SENERGY-Platform/smart-service-module-worker-lib v0.0.0-20220623113716-c01f799f528d
+	github.com/SENERGY-Platform/smart-service-module-worker-lib v0.0.0-20220706062144-a4704582ea25
 	github.com/go-playground/validator/v10 v10.11.0
 	github.com/satori/go.uuid v1.2.0
 )
