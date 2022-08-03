@@ -44,21 +44,21 @@ const ( //Offset
 
 //ServingRequest is a request to the serving-service to create a export (represented by Instance)
 type ServingRequest struct {
-	FilterType      string                `json:"FilterType,omitempty" validate:"required"`
-	Filter          string                `json:"Filter,omitempty" validate:"required"`
-	Name            string                `json:"Name,omitempty" validate:"required"`
-	EntityName      string                `json:"EntityName,omitempty" validate:"required"`
-	ServiceName     string                `json:"ServiceName,omitempty" validate:"required"`
-	Description     string                `json:"Description,omitempty"`
-	Topic           string                `json:"Topic,omitempty" validate:"required"`
-	TimePath        string                `json:"TimePath,omitempty"`
-	TimePrecision   string                `json:"TimePrecision,omitempty"`
-	Generated       bool                  `json:"generated,omitempty"`                  //default true
-	Offset          string                `json:"Offset,omitempty" validate:"required"` //default Largest
-	ForceUpdate     bool                  `json:"ForceUpdate,omitempty"`                //ignore
-	Values          []ServingRequestValue `json:"Values,omitempty"`
-	DatabaseType    string                `json:"DatabaseType,omitempty"`
-	TimestampFormat string                `json:"TimestampFormat,omitempty"`
+	FilterType       string                `json:"FilterType,omitempty" validate:"required"`
+	Filter           string                `json:"Filter,omitempty" validate:"required"`
+	Name             string                `json:"Name,omitempty" validate:"required"`
+	EntityName       string                `json:"EntityName,omitempty" validate:"required"`
+	ServiceName      string                `json:"ServiceName,omitempty" validate:"required"`
+	Description      string                `json:"Description,omitempty"`
+	Topic            string                `json:"Topic,omitempty" validate:"required"`
+	TimePath         string                `json:"TimePath,omitempty"`
+	TimePrecision    string                `json:"TimePrecision,omitempty"`
+	Generated        bool                  `json:"generated,omitempty"`
+	Offset           string                `json:"Offset,omitempty" validate:"required"`
+	ForceUpdate      bool                  `json:"ForceUpdate,omitempty"`
+	Values           []ServingRequestValue `json:"Values,omitempty"`
+	ExportDatabaseID string                `json:"ExportDatabaseID,omitempty"`
+	TimestampFormat  string                `json:"TimestampFormat,omitempty"`
 }
 
 type ServingRequestValue struct {
@@ -70,26 +70,27 @@ type ServingRequestValue struct {
 
 //Instance is the response from serving-service representing an existing export
 type Instance struct {
-	ID               uuid.UUID `gorm:"primary_key;type:char(36);column:id"`
-	Name             string    `gorm:"type:varchar(255)"`
-	Description      string    `gorm:"type:varchar(255)"`
-	EntityName       string    `gorm:"type:varchar(255)"`
-	ServiceName      string    `gorm:"type:varchar(255)"`
-	Topic            string    `gorm:"type:varchar(255)"`
-	ApplicationId    uuid.UUID `gorm:"type:char(36)"`
-	Database         string    `gorm:"type:varchar(255)"`
-	Measurement      string    `gorm:"type:varchar(255)"`
-	Filter           string    `gorm:"type:varchar(255)"`
-	FilterType       string    `gorm:"type:varchar(255)"`
-	TimePath         string    `gorm:"type:varchar(255)"`
-	TimePrecision    *string   `gorm:"type:varchar(255)"`
-	UserId           string    `gorm:"type:varchar(255)"`
-	Generated        bool      `gorm:"type:bool;DEFAULT:false"`
-	RancherServiceId string    `gorm:"type:varchar(255)"`
-	Offset           string    `gorm:"type:varchar(255)"`
-	DatabaseType     string    `gorm:"type:varchar(255)"`
-	TimestampFormat  string    `gorm:"type:varchar(255)"`
-	Values           []Value   `gorm:"foreignkey:InstanceID;association_foreignkey:ID"`
+	ID               uuid.UUID      `gorm:"primary_key;type:char(36);column:id"`
+	Name             string         `gorm:"type:varchar(255)"`
+	Description      string         `gorm:"type:varchar(255)"`
+	EntityName       string         `gorm:"type:varchar(255)"`
+	ServiceName      string         `gorm:"type:varchar(255)"`
+	Topic            string         `gorm:"type:varchar(255)"`
+	ApplicationId    uuid.UUID      `gorm:"type:char(36)"`
+	Database         string         `gorm:"type:varchar(255)"`
+	Measurement      string         `gorm:"type:varchar(255)"`
+	Filter           string         `gorm:"type:varchar(255)"`
+	FilterType       string         `gorm:"type:varchar(255)"`
+	TimePath         string         `gorm:"type:varchar(255)"`
+	TimePrecision    *string        `gorm:"type:varchar(255)"`
+	UserId           string         `gorm:"type:varchar(255)"`
+	Generated        bool           `gorm:"type:bool;DEFAULT:false"`
+	RancherServiceId string         `gorm:"type:varchar(255)"`
+	Offset           string         `gorm:"type:varchar(255)"`
+	ExportDatabaseID string         `gorm:"type:varchar(255)"`
+	ExportDatabase   ExportDatabase `gorm:"association_autoupdate:false;association_autocreate:false"`
+	TimestampFormat  string         `gorm:"type:varchar(255)"`
+	Values           []Value        `gorm:"foreignkey:InstanceID;association_foreignkey:ID"`
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 }
@@ -100,4 +101,16 @@ type Value struct {
 	Type       string    `gorm:"type:varchar(255)"`
 	Path       string    `gorm:"type:varchar(255)"`
 	Tag        bool      `gorm:"type:bool;DEFAULT:false"`
+}
+
+type ExportDatabase struct {
+	ID            string `gorm:"primary_key;type:varchar(255);column:id"`
+	Name          string `gorm:"type:varchar(255)"`
+	Description   string `gorm:"type:varchar(255)"`
+	Type          string `gorm:"type:varchar(255)"`
+	Deployment    string `gorm:"type:varchar(255)"`
+	Url           string `gorm:"type:varchar(255)"`
+	EwFilterTopic string `gorm:"type:varchar(255)"`
+	UserId        string `gorm:"type:varchar(255)"`
+	Public        bool   `gorm:"type:bool;DEFAULT:false"`
 }
