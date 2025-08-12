@@ -20,11 +20,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"github.com/SENERGY-Platform/smart-service-module-worker-lib/pkg/auth"
-	"log"
 	"net/http"
-	"runtime/debug"
 	"time"
+
+	"github.com/SENERGY-Platform/smart-service-module-worker-lib/pkg/auth"
 )
 
 func (this *Export) send(token auth.Token, request ServingRequest) (result Instance, err error) {
@@ -32,9 +31,7 @@ func (this *Export) send(token auth.Token, request ServingRequest) (result Insta
 	if err != nil {
 		return result, err
 	}
-	if this.config.Debug {
-		log.Println("DEBUG: send export request", string(body))
-	}
+	this.libConfig.GetLogger().Debug("send export request", "request", string(body))
 	client := http.Client{
 		Timeout: 5 * time.Second,
 	}
@@ -44,23 +41,17 @@ func (this *Export) send(token auth.Token, request ServingRequest) (result Insta
 		bytes.NewBuffer(body),
 	)
 	if err != nil {
-		debug.PrintStack()
 		return result, err
 	}
 	req.Header.Set("Authorization", token.Jwt())
 	req.Header.Set("X-UserId", token.GetUserId())
-	if this.config.Debug {
-		log.Println("DEBUG: send export request with token:", req.Header.Get("Authorization"))
-	}
+	this.libConfig.GetLogger().Debug("send export request", "request", string(body), "token", req.Header.Get("Authorization"))
 	resp, err := client.Do(req)
 	if err != nil {
-		debug.PrintStack()
 		return result, err
 	}
 	defer resp.Body.Close()
-
 	if resp.StatusCode >= 300 {
-		debug.PrintStack()
 		return result, errors.New("unexpected statuscode")
 	}
 	err = json.NewDecoder(resp.Body).Decode(&result)
