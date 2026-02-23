@@ -18,23 +18,71 @@ package pkg
 
 import (
 	"context"
+	"fmt"
+	"sync"
+	"time"
+
 	"github.com/SENERGY-Platform/smart-service-module-worker-export/pkg/export"
 	lib "github.com/SENERGY-Platform/smart-service-module-worker-lib"
 	"github.com/SENERGY-Platform/smart-service-module-worker-lib/pkg/auth"
 	"github.com/SENERGY-Platform/smart-service-module-worker-lib/pkg/camunda"
 	"github.com/SENERGY-Platform/smart-service-module-worker-lib/pkg/configuration"
+	"github.com/SENERGY-Platform/smart-service-module-worker-lib/pkg/model"
 	"github.com/SENERGY-Platform/smart-service-module-worker-lib/pkg/smartservicerepository"
-	"sync"
 )
 
 func Start(ctx context.Context, wg *sync.WaitGroup, config export.Config, libConfig configuration.Config) error {
 	handlerFactory := func(auth *auth.Auth, smartServiceRepo *smartservicerepository.SmartServiceRepository) (camunda.Handler, error) {
-		return export.New(
+		handler := export.New(
 			config,
 			libConfig,
 			auth,
 			smartServiceRepo,
-		), nil
+		)
+
+		interval, err := time.ParseDuration(config.HealthCheckInterval)
+		if err != nil {
+			return nil, err
+		}
+
+		healthCheck := func(module model.SmartServiceModule) (health error, err error) {
+			token, err := auth.ExchangeUserToken(module.UserId)
+			if err != nil {
+				return nil, err
+			}
+			exportId, err := getExportId(module.ModuleData)
+			if err != nil {
+				return nil, err
+			}
+			code, err := handler.CheckExport(token, exportId)
+			if err != nil {
+				return nil, err
+			}
+			if code >= 300 {
+				return fmt.Errorf("export health check returned status-code %v", code), nil
+			}
+			return nil, nil
+		}
+		moduleQuery := model.ModulQuery{TypeFilter: &libConfig.CamundaWorkerTopic}
+		smartServiceRepo.StartHealthCheck(ctx, interval, moduleQuery, healthCheck) //timer loop
+		smartServiceRepo.RunHealthCheck(moduleQuery, healthCheck)                  //initial check
+		return handler, nil
 	}
 	return lib.Start(ctx, wg, libConfig, handlerFactory)
+}
+
+func getExportId(moduleData map[string]interface{}) (string, error) {
+	exp, ok := moduleData["export"]
+	if !ok {
+		return "", fmt.Errorf("missing export in module data")
+	}
+	exportObj, ok := exp.(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("invalid export in module data")
+	}
+	exportId, ok := exportObj["ID"].(string)
+	if !ok {
+		return "", fmt.Errorf("invalid export in module data (id is not string)")
+	}
+	return exportId, nil
 }

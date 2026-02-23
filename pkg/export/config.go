@@ -20,4 +20,6 @@ type Config struct {
 	ServingServiceUrl string `json:"serving_service_url"`
 	WorkerParamPrefix string `json:"worker_param_prefix"`
 	Debug             bool   `json:"debug"`
+
+	HealthCheckInterval string `json:"health_check_interval"`
 }

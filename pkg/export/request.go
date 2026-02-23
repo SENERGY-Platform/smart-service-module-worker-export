@@ -21,6 +21,8 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/url"
+	"runtime/debug"
 	"time"
 
 	"github.com/SENERGY-Platform/smart-service-module-worker-lib/pkg/auth"
@@ -56,4 +58,33 @@ func (this *Export) send(token auth.Token, request ServingRequest) (result Insta
 	}
 	err = json.NewDecoder(resp.Body).Decode(&result)
 	return result, err
+}
+
+var DefaultTimeout = 30 * time.Second
+
+func (this *Export) CheckExport(token auth.Token, id string) (code int, err error) {
+	client := http.Client{
+		Timeout: DefaultTimeout,
+	}
+	req, err := http.NewRequest(
+		"GET",
+		this.config.ServingServiceUrl+"/instance/"+url.PathEscape(id),
+		nil,
+	)
+	if err != nil {
+		this.libConfig.GetLogger().Error("error in CheckExport", "error", err, "stack", string(debug.Stack()))
+		return 0, err
+	}
+	req.Header.Set("Authorization", token.Jwt())
+	req.Header.Set("X-UserId", token.GetUserId())
+
+	this.libConfig.GetLogger().Debug("check export request", "url", req.URL.String(), "method", req.Method, "token", req.Header.Get("Authorization"), "xuser", req.Header.Get("X-UserId"))
+
+	resp, err := client.Do(req)
+	if err != nil {
+		this.libConfig.GetLogger().Error("error in CheckExport", "error", err, "stack", string(debug.Stack()))
+		return 0, err
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode, nil
 }
