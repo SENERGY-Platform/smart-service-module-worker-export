@@ -18,6 +18,7 @@ package export
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -25,15 +26,16 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/SENERGY-Platform/gin-middleware/otelx"
 	"github.com/SENERGY-Platform/smart-service-module-worker-lib/pkg/auth"
 )
 
-func (this *Export) send(token auth.Token, request ServingRequest) (result Instance, err error) {
+func (this *Export) send(ctx context.Context, token auth.Token, request ServingRequest) (result Instance, err error) {
 	body, err := json.Marshal(request)
 	if err != nil {
 		return result, err
 	}
-	this.libConfig.GetLogger().Debug("send export request", "request", string(body))
+	this.libConfig.GetLogger().DebugContext(ctx, "send export request", "request", string(body))
 	client := http.Client{
 		Timeout: 5 * time.Second,
 	}
@@ -45,9 +47,13 @@ func (this *Export) send(token auth.Token, request ServingRequest) (result Insta
 	if err != nil {
 		return result, err
 	}
+	err = otelx.InjectContextToRequest(ctx, req)
+	if err != nil {
+		return result, err
+	}
 	req.Header.Set("Authorization", token.Jwt())
 	req.Header.Set("X-UserId", token.GetUserId())
-	this.libConfig.GetLogger().Debug("send export request", "request", string(body), "token", req.Header.Get("Authorization"))
+	this.libConfig.GetLogger().DebugContext(ctx, "send export request", "request", string(body))
 	resp, err := client.Do(req)
 	if err != nil {
 		return result, err
@@ -62,7 +68,7 @@ func (this *Export) send(token auth.Token, request ServingRequest) (result Insta
 
 var DefaultTimeout = 30 * time.Second
 
-func (this *Export) CheckExport(token auth.Token, id string) (code int, err error) {
+func (this *Export) CheckExport(ctx context.Context, token auth.Token, id string) (code int, err error) {
 	client := http.Client{
 		Timeout: DefaultTimeout,
 	}
@@ -72,17 +78,22 @@ func (this *Export) CheckExport(token auth.Token, id string) (code int, err erro
 		nil,
 	)
 	if err != nil {
-		this.libConfig.GetLogger().Error("error in CheckExport", "error", err, "stack", string(debug.Stack()))
+		this.libConfig.GetLogger().ErrorContext(ctx, "error in CheckExport", "error", err, "stack", string(debug.Stack()))
+		return 0, err
+	}
+	err = otelx.InjectContextToRequest(ctx, req)
+	if err != nil {
+		this.libConfig.GetLogger().ErrorContext(ctx, "error in CheckExport", "error", err, "stack", string(debug.Stack()))
 		return 0, err
 	}
 	req.Header.Set("Authorization", token.Jwt())
 	req.Header.Set("X-UserId", token.GetUserId())
 
-	this.libConfig.GetLogger().Debug("check export request", "url", req.URL.String(), "method", req.Method, "token", req.Header.Get("Authorization"), "xuser", req.Header.Get("X-UserId"))
+	this.libConfig.GetLogger().DebugContext(ctx, "check export request", "url", req.URL.String(), "method", req.Method, "xuser", req.Header.Get("X-UserId"))
 
 	resp, err := client.Do(req)
 	if err != nil {
-		this.libConfig.GetLogger().Error("error in CheckExport", "error", err, "stack", string(debug.Stack()))
+		this.libConfig.GetLogger().ErrorContext(ctx, "error in CheckExport", "error", err, "stack", string(debug.Stack()))
 		return 0, err
 	}
 	defer resp.Body.Close()

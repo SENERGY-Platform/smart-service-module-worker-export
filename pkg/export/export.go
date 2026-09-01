@@ -17,12 +17,14 @@
 package export
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"runtime/debug"
 
+	"github.com/SENERGY-Platform/gin-middleware/otelx"
 	"github.com/SENERGY-Platform/smart-service-module-worker-lib/pkg/auth"
 	"github.com/SENERGY-Platform/smart-service-module-worker-lib/pkg/configuration"
 	"github.com/SENERGY-Platform/smart-service-module-worker-lib/pkg/model"
@@ -41,22 +43,22 @@ type Export struct {
 }
 
 type SmartServiceRepo interface {
-	GetInstanceUser(instanceId string) (userId string, err error)
+	GetInstanceUser(ctx context.Context, instanceId string) (userId string, err error)
 }
 
-func (this *Export) Do(task model.CamundaExternalTask) (modules []model.Module, outputs map[string]interface{}, err error) {
-	userId, err := this.smartServiceRepo.GetInstanceUser(task.ProcessInstanceId)
+func (this *Export) Do(ctx context.Context, task model.CamundaExternalTask) (modules []model.Module, outputs map[string]interface{}, err error) {
+	userId, err := this.smartServiceRepo.GetInstanceUser(ctx, task.ProcessInstanceId)
 	if err != nil {
-		this.libConfig.GetLogger().Error("unable to get instance user", "error", err)
+		this.libConfig.GetLogger().ErrorContext(ctx, "unable to get instance user", "error", err)
 		return modules, outputs, err
 	}
 	token, err := this.auth.ExchangeUserToken(userId)
 	if err != nil {
-		this.libConfig.GetLogger().Error("unable to exchange user token", "error", err)
+		this.libConfig.GetLogger().ErrorContext(ctx, "unable to exchange user token", "error", err)
 		return modules, outputs, err
 	}
 
-	defaultModuleData, analyticsModuleDeleteInfo, outputs, err := this.do(token, task)
+	defaultModuleData, analyticsModuleDeleteInfo, outputs, err := this.do(ctx, token, task)
 	if err != nil {
 		return modules, outputs, err
 	}
@@ -78,20 +80,24 @@ func (this *Export) Do(task model.CamundaExternalTask) (modules []model.Module, 
 		err
 }
 
-func (this *Export) Undo(modules []model.Module, reason error) {
-	this.libConfig.GetLogger().Debug("undo", "reason", reason)
+func (this *Export) Undo(ctx context.Context, modules []model.Module, reason error) {
+	this.libConfig.GetLogger().DebugContext(ctx, "undo", "reason", reason)
 	for _, module := range modules {
 		if module.DeleteInfo != nil {
-			err := this.useModuleDeleteInfo(*module.DeleteInfo)
+			err := this.useModuleDeleteInfo(ctx, *module.DeleteInfo)
 			if err != nil {
-				this.libConfig.GetLogger().Error("error in undo", "error", err, "module_id", module.Id, "module_data", module.ModuleData, "delete_info", *module.DeleteInfo, "reason", reason, "stack", string(debug.Stack()))
+				this.libConfig.GetLogger().ErrorContext(ctx, "error in undo", "error", err, "module_id", module.Id, "module_data", module.ModuleData, "delete_info", *module.DeleteInfo, "reason", reason, "stack", string(debug.Stack()))
 			}
 		}
 	}
 }
 
-func (this *Export) useModuleDeleteInfo(info model.ModuleDeleteInfo) error {
+func (this *Export) useModuleDeleteInfo(ctx context.Context, info model.ModuleDeleteInfo) error {
 	req, err := http.NewRequest("DELETE", info.Url, nil)
+	if err != nil {
+		return err
+	}
+	err = otelx.InjectContextToRequest(ctx, req)
 	if err != nil {
 		return err
 	}
@@ -110,7 +116,7 @@ func (this *Export) useModuleDeleteInfo(info model.ModuleDeleteInfo) error {
 	if resp.StatusCode >= 300 && resp.StatusCode != http.StatusNotFound {
 		temp, _ := io.ReadAll(resp.Body)
 		err = fmt.Errorf("unexpected response: %v, %v", resp.StatusCode, string(temp))
-		this.libConfig.GetLogger().Error("error in useModuleDeleteInfo", "error", err, "stack", string(debug.Stack()))
+		this.libConfig.GetLogger().ErrorContext(ctx, "error in useModuleDeleteInfo", "error", err, "stack", string(debug.Stack()))
 		return err
 	}
 	_, _ = io.ReadAll(resp.Body)
@@ -121,7 +127,7 @@ func (this *Export) getModuleId(task model.CamundaExternalTask) string {
 	return task.ProcessInstanceId + "." + task.Id
 }
 
-func (this *Export) do(token auth.Token, task model.CamundaExternalTask) (moduleData map[string]interface{}, deleteInfo *model.ModuleDeleteInfo, outputs map[string]interface{}, err error) {
+func (this *Export) do(ctx context.Context, token auth.Token, task model.CamundaExternalTask) (moduleData map[string]interface{}, deleteInfo *model.ModuleDeleteInfo, outputs map[string]interface{}, err error) {
 	request, err := this.getRequest(task)
 	if err != nil {
 		return moduleData, deleteInfo, outputs, err
@@ -131,7 +137,7 @@ func (this *Export) do(token auth.Token, task model.CamundaExternalTask) (module
 		return moduleData, deleteInfo, outputs, fmt.Errorf("invalid export request: %w", err)
 	}
 
-	exportInstance, err := this.send(token, transformedRequest)
+	exportInstance, err := this.send(ctx, token, transformedRequest)
 	if err != nil {
 		return moduleData, deleteInfo, outputs, err
 	}

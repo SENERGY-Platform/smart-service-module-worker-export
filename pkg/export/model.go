@@ -42,7 +42,7 @@ const ( //Offset
 	Smallest = "smallest"
 )
 
-//ServingRequest is a request to the serving-service to create a export (represented by Instance)
+// ServingRequest is a request to the serving-service to create a export (represented by Instance)
 type ServingRequest struct {
 	FilterType       string                `json:"FilterType,omitempty" validate:"required"`
 	Filter           string                `json:"Filter,omitempty" validate:"required"`
@@ -68,7 +68,7 @@ type ServingRequestValue struct {
 	Tag  bool   `json:"Tag"`
 }
 
-//Instance is the response from serving-service representing an existing export
+// Instance is the response from serving-service representing an existing export
 type Instance struct {
 	ID               uuid.UUID      `gorm:"primary_key;type:char(36);column:id"`
 	Name             string         `gorm:"type:varchar(255)"`

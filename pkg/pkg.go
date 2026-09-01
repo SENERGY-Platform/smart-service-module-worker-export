@@ -45,7 +45,7 @@ func Start(ctx context.Context, wg *sync.WaitGroup, config export.Config, libCon
 			return nil, err
 		}
 
-		healthCheck := func(module model.SmartServiceModule) (health error, err error) {
+		healthCheck := func(ctx context.Context, module model.SmartServiceModule) (health error, err error) {
 			token, err := auth.ExchangeUserToken(module.UserId)
 			if err != nil {
 				return nil, err
@@ -54,7 +54,7 @@ func Start(ctx context.Context, wg *sync.WaitGroup, config export.Config, libCon
 			if err != nil {
 				return nil, err
 			}
-			code, err := handler.CheckExport(token, exportId)
+			code, err := handler.CheckExport(ctx, token, exportId)
 			if err != nil {
 				return nil, err
 			}
@@ -65,7 +65,7 @@ func Start(ctx context.Context, wg *sync.WaitGroup, config export.Config, libCon
 		}
 		moduleQuery := model.ModulQuery{TypeFilter: &libConfig.CamundaWorkerTopic}
 		smartServiceRepo.StartHealthCheck(ctx, interval, moduleQuery, healthCheck) //timer loop
-		smartServiceRepo.RunHealthCheck(moduleQuery, healthCheck)                  //initial check
+		smartServiceRepo.RunHealthCheck(ctx, moduleQuery, healthCheck)             //initial check
 		return handler, nil
 	}
 	return lib.Start(ctx, wg, libConfig, handlerFactory)
