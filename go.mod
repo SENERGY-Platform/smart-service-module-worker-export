@@ -4,7 +4,7 @@ go 1.26
 
 require (
 	github.com/SENERGY-Platform/gin-middleware v0.14.1
-	github.com/SENERGY-Platform/smart-service-module-worker-lib v0.0.0-20260928072743-d2c820b76945
+	github.com/SENERGY-Platform/smart-service-module-worker-lib v0.0.0-20261006080333-b6af9a5986cb
 	github.com/go-playground/validator/v10 v10.30.2
 	github.com/satori/go.uuid v1.2.0
 )
